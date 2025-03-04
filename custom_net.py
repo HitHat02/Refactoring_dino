@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 plt.ion()
 import pytorch_lightning as pl
-from pytorch_lightning.metrics import functional as FM
+from torchmetrics import functional as FM
 
 import torch
 import torch.nn as nn

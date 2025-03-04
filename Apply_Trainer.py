@@ -12,6 +12,7 @@ from custom_net import end_to_3d_lingtning
 from custom_datamodule import *
 import filter_back_end as filterBack
 import torch.nn.functional as nnf
+from box_back_end import *
 import box_maker
 import csv_fraction
 import csv_concat
@@ -30,7 +31,7 @@ def npy_loader(path):
     return np.reshape(orgn,(orgn.shape[0],orgn.shape[1],orgn.shape[2]))
 
 def apply_filter( npy_file):
-    filter_df = pd.read_csv('D:\\work_space\\code\\gpr_deep\\dino_finetune\\filterCollect.csv')
+    filter_df = pd.read_csv('.\\filterCollect.csv')
 
     filter_ = filter_worker(npy_file, filter_df)
     RD3_data = filter_.filterRun()
@@ -173,7 +174,7 @@ class filter_worker:
 
             elif row['filter_base'] == 'ch_bias':
                 print('ch_bias start')
-
+                self.start_bias = np.mean(self.data, axis=(1, 2))
                 ch_bias = filterBack.ch_bias()
                 # sign_smoother.runable = int(row['sign_smoother_check'])
                 if int(row['ch_bias_check']) == 2:
@@ -183,7 +184,7 @@ class filter_worker:
 
         return np.int32(self.RD3_data)
 
-from box_back_end import *
+
 
 def openRd3(fname):
     distanceRatio_default = 0.075369
@@ -357,7 +358,10 @@ def apply_trainer_run(
 
                 # gpr_npy_out = gpr_npy_out.cpu().numpy()
                 index = gpr_npy_out.shape[0]
-                weight = torch.tensor(np.array([kernel_reshape] * num_class)).to(device)
+                if isinstance(weight, torch.Tensor):
+                    weight = weight.clone().detach().to(device)
+                else:
+                    weight = torch.tensor(weight, dtype=torch.float32).to(device)
                 for i in range(index - 1):
                     # print(i)
                     concat_out[:, :, :, i * 64 :  i * 64 + 128] += nnf.interpolate(gpr_npy_out[i].to(device), size=(128, 128), mode='nearest') * weight
@@ -404,18 +408,18 @@ def apply_trainer_run(
 
 
 if __name__ == "__main__":
-    version = 'grinding_v07'
+    version = 'New_model_v1.0'
     epoch = "10"
     thread = [10, 20, 30, 40, 50, 60, 70, 80, 90]
     for th in thread:
         apply_trainer_run(
-            master_path='Z:\\home\\ai성능테스트용\\06 2021년 도로지하시설물 통합GPR탐사 안전점검 용역(2차)\\',
+            master_path='C:\\Users\\HYH\\Desktop\\분석사 일일분석일지\\test data_240724\\01 RAWDATA(섬밭로)',
             save_path=f'D:\\work_space\\code\\gpr_deep\\dino_finetune\\test_result\\{version}_test\\{epoch}',
             csv_path=f"D:\\work_space\\code\\gpr_deep\\dino_finetune\\csv\\{version}_test\\{epoch} {th}",
             model_name=version,
             num_class=2,
             batch_size=10,
-            model_path="grinding_v07/model_0/epoch=10-val_loss=0.994026-val_acc=0.979995.ckpt",
+            model_path="model/girinding_v09_best.bak",
             class_map={
                 1 : 'uco',
                 0 : 'background'

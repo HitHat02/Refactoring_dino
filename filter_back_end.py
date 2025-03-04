@@ -369,7 +369,7 @@ class Backgroud_remove:
         for bg_channel in range(0, gpr_aligned.shape[0]):
             for bg_depth2 in range(0, gpr_aligned.shape[1]):
                 gpr_AB[bg_channel, bg_depth2] = gpr_aligned[bg_channel, bg_depth2] \
-                                                - (np.mean(gpr_aligned[bg_channel, bg_depth2], dtype=np.int) * self.percent)
+                                                - (np.mean(gpr_aligned[bg_channel, bg_depth2], dtype=np.int32) * self.percent)
 
         return np.int16(gpr_AB)
 
