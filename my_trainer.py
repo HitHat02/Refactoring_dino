@@ -43,11 +43,11 @@ checkpoint_callback = pl.callbacks.model_checkpoint.ModelCheckpoint(monitor='val
 
 lr_callback = pl.callbacks.lr_monitor.LearningRateMonitor(logging_interval='step')
 
-csv_file = 'Z:\\LAB_GPR\\labelings\\240731_train_22년순천지사임시제거.csv'
+csv_file = 'C:\\Users\\HYH\\Desktop\\test\\20230510_21년_양주시1차_최종.csv'
 # master_path = 'Z:\\GK\\7. 탐사DATA\\'
-master_path = 'Z:\\LAB_GPR\\_rd3_data_all\\'
+master_path = 'C:\\Users\\HYH\\Desktop\\test\\양주시'
 # master_path = 'D:\\work_space\\data\\_rd3_data_all\\2021\\'
-save_path = f'E:\\work_space\\{version}\\'
+save_path = f'D:\\work_space\\{version}\\'
 
 if not os.path.exists(save_path):
     os.makedirs(save_path)
@@ -154,12 +154,10 @@ model = end_to_3d_lingtning(
 counted_class = df['class'].value_counts()
 print(counted_class)
 
-unit = {i:0 for i in range(max(c_map.values())+1
-                           )}
+unit = {i:0 for i in range(max(c_map.values())+1)}
 
 for indx, value in c_map.items():
-    # if value > 0:
-    unit[value] += counted_class[indx]
+    unit[value] += counted_class.get(indx, 0)
 print(unit)
 
 # model_past = end_to_3d_lingtning(BasicBlock_3d,
@@ -181,8 +179,8 @@ print(unit)
 # model.conv9 = model_past.conv9
 #
 # del model_past
-model_path = "model/girinding_v09_best.bak"
-model = model.load_from_checkpoint(model_path, strict=False)
+model_path = "model\\girinding_v09_best.bak"
+model = end_to_3d_lingtning.load_from_checkpoint(model_path, strict=False)
 
 model.update_loss(alpha=3.,
                   beta=1.5,
@@ -221,8 +219,8 @@ transformss = transforms.Compose([
 tt, bbox = transformss((tt, bbox))
 bbox[...,0] = 3
 
-model.reference_image = torch.reshape(torch.tensor(torch.clip(tt, 0, 1)),(1,1,25,224,224)).type(torch.cuda.FloatTensor)
-model.reference_answer = torch.reshape(torch.tensor(bbox),(1,25,224,224)).type(torch.cuda.FloatTensor)
+model.reference_image = torch.reshape(torch.clip(tt, 0, 1).clone().detach(), (1,1,25,224,224)).type(torch.cuda.FloatTensor)
+model.reference_answer = torch.reshape(bbox.clone().detach(), (1,25,224,224)).type(torch.cuda.FloatTensor)
 
 new_map = {
     "cavity":1,
@@ -268,18 +266,17 @@ logger = TensorBoardLogger(f'./{version}/logs_{count}/', name=f'binary_vit_{vers
 
 trainer = pl.Trainer(
     max_epochs=1000,
-    auto_lr_find=True,
-    gpus=1,
+    devices=1,
+    accelerator="gpu",
     callbacks=[early_stop_callback,
                 checkpoint_callback,
                 # lr_callback
                 ],
     logger=logger,
-    reload_dataloaders_every_epoch=True,
     # fast_dev_run=True,
     )
 
-# lr_finder = trainer.tune(model,gpr_data)
+# lr_finder = trainer.tuner.lr_find(model, train_dataloader=gpr_data.train_dataloader())
 # lr_finder = lr_finder['lr_find']
 # print(lr_finder.results)
 # print(model.hparams.learning_rate )
@@ -291,7 +288,7 @@ trainer = pl.Trainer(
 
 # model.hparams.learning_rate =  model.learning_rate = 0.0630957344480193
 
-trainer.fit(model, datamodule= gpr_data)
+trainer.fit(model, datamodule=gpr_data)
 
 models = [file for file in os.listdir(f'./{version}/model_{count}/') if os.path.splitext(file)[1] == '.ckpt']
 result_file = open(f'./{version}/model_{count}/test_result.txt', "w")

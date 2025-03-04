@@ -115,6 +115,8 @@ class end_to_3d_lingtning(pl.LightningModule):
                  max_lr = 0.000001,
                  scheldule_step = 100000):
         super().__init__()
+        self.training_step_outputs = []
+        self.validation_step_outputs = []
 
         self.save_hyperparameters('block', 'block_up', 'num_block', 'learning_rate', 'dropout', 'num_classes',
                                   'init_weights')
@@ -286,10 +288,11 @@ class end_to_3d_lingtning(pl.LightningModule):
         y = y.long()
 
         loss = self.criterion(y_hat, y)
+        self.training_step_outputs.append(loss)
 
         _, preds = torch.max(y_hat, 1)
 
-        acc = FM.accuracy(preds, y)
+        acc = FM.accuracy(preds, y ,task="binary")
 
         metrics = {'acc': acc, 'loss': loss}
 
@@ -319,10 +322,11 @@ class end_to_3d_lingtning(pl.LightningModule):
         y = y.long()
 
         loss = self.criterion(y_hat, y)
+        self.validation_step_outputs.append(loss)
 
         _, preds = torch.max(y_hat, 1)
 
-        acc = FM.accuracy(preds, y)
+        acc = FM.accuracy(preds, y, task="binary")
 
         metrics = {'val_acc': acc, 'val_loss': loss}
         self.log_dict(metrics)
@@ -337,7 +341,7 @@ class end_to_3d_lingtning(pl.LightningModule):
 
         _, preds = torch.max(y_hat, 1)
 
-        acc = FM.accuracy(preds, y)
+        acc = FM.accuracy(preds, y, task="binary")
 
         metrics = {'test_acc': acc, 'test_loss': loss}
         self.log_dict(metrics)
@@ -399,8 +403,9 @@ class end_to_3d_lingtning(pl.LightningModule):
             c = self.makegrid(preds, 16, 13)
             self.logger.experiment.add_image(f"{label} ", make_to_rgb(c), self.current_epoch, dataformats="CHW")
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self, outputs):
         #  the function is called after every epoch is completed
+        epoch_average = torch.stack(self.validation_step_outputs).mean()
         if self.current_epoch == 0:
             self.test_img_add_logger()
             if hasattr(self, "img_dict"):
@@ -409,9 +414,10 @@ class end_to_3d_lingtning(pl.LightningModule):
                         self.logger.experiment.add_image(k, make_to_rgb(v), self.current_epoch, dataformats="CHW")
                     else:
                         self.logger.experiment.add_image(k, v, self.current_epoch, dataformats="HW")
+        self.validation_step_outputs.clear()  # free memory
 
-    def training_epoch_end(self, outputs):
-
+    def on_train_epoch_end (self, outputs):
+        epoch_average = torch.stack(self.training_step_outputs).mean()
         if isinstance(self.reference_image, type(torch.tensor([]))):
             self.showActivations(self.reference_image)
         #             print('image saved')
@@ -449,6 +455,7 @@ class end_to_3d_lingtning(pl.LightningModule):
             (0, 0, 0, 0, 0),
             (0, 0, 0, 0, 0),
         ]
+        self.training_step_outputs.clear()  # free memory
 
 
     def test_img_add_logger(self):

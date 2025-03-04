@@ -274,7 +274,9 @@ class DataModule(pl.LightningDataModule):
             with open(self.filename, 'wb') as fw:
                 pickle.dump(what, fw)
 
-            self.class_contain = np.array(what)
+            max_len = max(len(x) for x in what)
+            what_fixed = [x + [0.0] * (max_len - len(x)) for x in what]
+            self.class_contain = np.array(what_fixed)
 
         test_size = int(len(self.datasets) * self.val_split_percent)
         train_val_size = len(self.datasets) - test_size

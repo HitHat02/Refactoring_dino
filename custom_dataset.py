@@ -243,7 +243,7 @@ class gpr_box_dataset(Dataset):
         return np.reshape(orgn,(1,orgn.shape[0],orgn.shape[1],orgn.shape[2]))
 
     def apply_filter(self, npy_file):
-        filter_df = pd.read_csv('D:\\work_space\\code\\gpr_deep\\dino_finetune\\filterCollect.csv')
+        filter_df = pd.read_csv('filterCollect.csv')
 
         filter_ = filter_worker(npy_file, filter_df)
         RD3_data = filter_.filterRun()
@@ -396,6 +396,7 @@ class filter_worker:
         self.data = data
         self.filter_df = filter_df
 
+
     def filterRun(self):
 
         # start_time = time.time()
@@ -525,7 +526,7 @@ class filter_worker:
 
             elif row['filter_base'] == 'ch_bias':
                 print('ch_bias start')
-
+                self.start_bias = np.mean(self.data, axis=(1,2))
                 ch_bias = filterBack.ch_bias()
                 # sign_smoother.runable = int(row['sign_smoother_check'])
                 if int(row['ch_bias_check']) == 2:
