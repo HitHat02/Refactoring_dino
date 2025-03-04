@@ -244,7 +244,7 @@ def apply_trainer_run(
         model_name = 'm_t3r_v09',
         num_class = 2,
         batch_size = 10,
-        model_path = './multi_t3r_v09/model_0/epoch=85-val_loss=0.329040-val_acc=0.996600.ckpt',
+        model_path = 'model/girinding_v09_best.bak',
         class_map=None,
         mixed_muli_class=None,
         distanceRatio =  0.077149,# 0.075369 #
@@ -358,10 +358,7 @@ def apply_trainer_run(
 
                 # gpr_npy_out = gpr_npy_out.cpu().numpy()
                 index = gpr_npy_out.shape[0]
-                if isinstance(weight, torch.Tensor):
-                    weight = weight.clone().detach().to(device)
-                else:
-                    weight = torch.tensor(weight, dtype=torch.float32).to(device)
+                weight = torch.tensor(np.array([kernel_reshape] * num_class)).to(device)
                 for i in range(index - 1):
                     # print(i)
                     concat_out[:, :, :, i * 64 :  i * 64 + 128] += nnf.interpolate(gpr_npy_out[i].to(device), size=(128, 128), mode='nearest') * weight
@@ -413,7 +410,7 @@ if __name__ == "__main__":
     thread = [10, 20, 30, 40, 50, 60, 70, 80, 90]
     for th in thread:
         apply_trainer_run(
-            master_path='C:\\Users\\HYH\\Desktop\\분석사 일일분석일지\\test data_240724\\01 RAWDATA(섬밭로)',
+            master_path='C:\\Users\\HYH\\Desktop\\분석사 일일분석일지\\test data_240724\\01 RAWDATA(섬밭로)\\SBR_000',
             save_path=f'D:\\work_space\\code\\gpr_deep\\dino_finetune\\test_result\\{version}_test\\{epoch}',
             csv_path=f"D:\\work_space\\code\\gpr_deep\\dino_finetune\\csv\\{version}_test\\{epoch} {th}",
             model_name=version,

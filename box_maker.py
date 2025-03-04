@@ -158,7 +158,7 @@ def make_box_from_gpr_predict(
                 # weight = np.where(cut > threshold_min, 1, 0)
                 percent = 100 * np.sum(cut) / np.size(cut)
 
-            result_df = result_df.append(
+            result_df = pd.concat([result_df, pd.DataFrame([
                 {
                     'filename': name,
                     'ch1': mins[0],
@@ -175,7 +175,7 @@ def make_box_from_gpr_predict(
                     'writer' : predicter,
                     'memo' : '',
                     'ascan':percent,
-                },
+                }])],
                 ignore_index=True
             )
     try:

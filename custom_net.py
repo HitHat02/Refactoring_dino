@@ -470,7 +470,7 @@ class SCELoss(torch.nn.Module):
         self.beta = beta
         self.num_classes = num_classes
         self.cross_entropy = torch.nn.CrossEntropyLoss(weight=weight)
-        self.weight = torch.tensor(weight).to(self.device)
+        self.weight = weight.clone().detach().to(self.device)
 
     def gaussian(self, ch, dep, dis):
         kernel = cv2.getGaussianKernel(dis, 30)

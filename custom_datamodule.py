@@ -102,6 +102,21 @@ class RandomPosition():
 
         return (image, labels)
 
+class RandomContrast():
+    def __init__(self, min_rate:float = 0.1, max_rate:float = 10.0):
+        self.min_rate = min_rate
+        self.max_rate = max_rate
+
+    def __call__(self, sample):
+        image, labels = sample
+        centered = (image * 6000) - 3000
+
+        rate = random.uniform(self.min_rate, self.max_rate)
+        centered = centered * rate
+
+        image = (centered + 3000) / 6000
+
+        return (image, labels)
 
 class Rescale(object):
     """Rescale the image in a sample to a given size.
@@ -233,8 +248,14 @@ class DataModule(pl.LightningDataModule):
         self.datasets:gpr_box_dataset = datasets_obj
         self.filename = filename
 
+        self.prepare_data_per_node = True
+
 
     def prepare_data(self):
+        self.prepare_monster()
+
+    def prepare_monster(self):
+        print('prepare data on data module')
         self.datasets.prepare_data()
         self.class_contain = np.array([])
         # print(len(self.datasets))
@@ -279,7 +300,9 @@ class DataModule(pl.LightningDataModule):
                                                 [i for i in range(train_val_size, test_size + train_val_size)])
 
     def setup(self, stage=None):
+        self.setup_monster(stage)
 
+    def setup_monster(self, stage=None):
         if stage in (None, 'fit'):
 
             val_size = int(len(self.train_val) * self.val_split_percent)
@@ -306,8 +329,9 @@ class DataModule(pl.LightningDataModule):
 
     # return the dataloader for each split
     def train_dataloader(self):
-        self.prepare_data()
-        self.setup()
+        print("called train_dataloader ")
+        self.prepare_monster()
+        self.setup_monster()
         self.train_ = MyLazyDataset(self.train, self.transforms)
         return DataLoader(self.train_, batch_size=self.batch_size)
 
