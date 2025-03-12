@@ -1,13 +1,9 @@
 import random
-
-import numpy as np
+import sys
 import pandas as pd
-
 from torch.utils.data import Dataset
-import os
 import torch
-
-import filter_back_end as filterBack
+from open_file import *
 
 class gpr_box_dataset(Dataset):
     def __init__(self,
@@ -41,11 +37,6 @@ class gpr_box_dataset(Dataset):
         self.box_df = self.box_df.reset_index(drop=True)
         print(len(self.box_df))
 
-        # self.csv_column_type = {'filename': 'str', 'year': 'str', 'month': 'str', 'day': 'str', 'ch': 'float', 'dis(m)': 'float', 'dep(cm)': 'float', 'ch1': 'int', 'ch2': 'int', \
-        #                         'dep1(pix)': 'int', 'dep2(pix)': 'int', 'dis1(pix)': 'int', 'dis2(pix)': 'int', 'volume': 'int', 'value': 'int', \
-        #                         'cav_num': 'str', 'XY': 'float', 'YZ': 'float', 'XZ': 'float', 'ascan': 'float', 'class': 'str', 'writer': 'str', 'submit': 'bool', 'memo': 'str'}
-        # print(self.box_df.info())
-        # self.box_df = self.box_df.astype(self.csv_column_type)
 
         self.remove_df = self.box_df[self.box_df['class'].isin(self.remove_map)]
         self.box_df = self.box_df[self.box_df['class'].isin(self.class_map.keys())]
@@ -127,7 +118,7 @@ class gpr_box_dataset(Dataset):
                                                  '{}.npy'.format(target_file['filename'])
                                                  )
 
-                    image = self.npy_loader(self.npy_path)
+                    image = npy_loader(self.npy_path)
                 self.before_file = image
 
             else:
@@ -213,7 +204,7 @@ class gpr_box_dataset(Dataset):
             #     print(os.path.join(path, target_file['filename'] + '.rd3'))
             #     print(e)
             #     sys.exit(1)
-            image = self.npy_loader(data)
+            image = npy_loader(data)
             find_from_local = True
             # target_file.loc['path'] = path.replace("\\", "/")
             return find_from_local, image
@@ -226,28 +217,6 @@ class gpr_box_dataset(Dataset):
         #     return find_from_local
 
         return False, None
-
-    def npy_loader(self, path):
-        if isinstance(path, str):
-            orgn = np.load(path)
-        else:
-            orgn = path
-        orgn = self.apply_filter(orgn)
-
-        orgn = orgn + 3000
-        orgn = orgn / 6000
-
-        orgn = orgn.astype(np.float32)
-        # sample = torch.from_numpy(orgn)
-
-        return np.reshape(orgn,(1,orgn.shape[0],orgn.shape[1],orgn.shape[2]))
-
-    def apply_filter(self, npy_file):
-        filter_df = pd.read_csv('filterCollect.csv')
-
-        filter_ = filter_worker(npy_file, filter_df)
-        RD3_data = filter_.filterRun()
-        return RD3_data
 
     def get_filename_by_index(self, idx):
         if torch.is_tensor(idx):
@@ -388,204 +357,3 @@ class gpr_box_dataset(Dataset):
             # )
 
         return pd.concat(new_dfs, ignore_index=True)
-
-
-class filter_worker:
-    def __init__(self, data, filter_df):
-        super().__init__()
-        self.data = data
-        self.filter_df = filter_df
-
-
-    def filterRun(self):
-
-        # start_time = time.time()
-        self.RD3_data = copy.deepcopy(self.data)
-
-        selectedFilter = self.filter_df[self.filter_df.default == 1].copy()
-
-        selectedFilter = selectedFilter.fillna(0)
-        selectedFilter = selectedFilter.sort_values(by=['filter_order'])
-
-        for index, row in selectedFilter.iterrows():
-
-            if row['filter_base'] == 'gain':
-                print('gain start')
-                Gain = filterBack.Gain()
-
-                Gain.y_inter = float(row['y_inter'])
-                Gain.grad_const = float(row['grad_const'])
-                Gain.inflection_point = float(row['inflection_point'])
-                Gain.inflection_range = float(row['inflection_range'])
-                self.RD3_data = Gain.Gain(self.RD3_data)
-                print('gain end')
-
-            elif row['filter_base'] == 'range':
-                print('Range start')
-                Range = filterBack.Range()
-
-                Range.range_vaule = float(row['range_vaule'])
-                self.ascan_range = int(row['range_vaule'])
-                self.RD3_data = Range.Range(self.RD3_data)
-                print('Range end')
-
-            elif row['filter_base'] == 'las':
-                print('Las start')
-
-                Las = filterBack.Las()
-
-                Las.las_ratio = float(row['las_ratio'])
-                Las.sigmaNumber = float(row['sigmaNumber'])
-                # Las.las_number = float(row['las_number'])
-                Las.sigma_constants = float(row['sigma_constants'])
-                self.RD3_data = Las.Las(self.RD3_data)
-
-                print('Las end')
-
-            elif row['filter_base'] == 'edge':
-                print('edge start')
-
-                edge = filterBack.edge()
-
-                edge.edge_range = float(row['edge_range'])
-                self.RD3_data = edge.edge(self.RD3_data)
-
-                print('edge end')
-
-            elif row['filter_base'] == 'average':
-                print('average start')
-
-                average = filterBack.average()
-
-                average.depth = int(row['depth_para'])
-                average.dist = int(row['dist_para'])
-                self.RD3_data = average.average(self.RD3_data)
-
-                print('average end')
-
-            elif row['filter_base'] == 'y_differential':
-                print('y_differential start')
-
-                y_differential = filterBack.y_differential()
-                y_differential.y_window_para = int(row['y_window_para'])
-                self.RD3_data = y_differential.y_differential(self.RD3_data)
-
-                print('y_differential end')
-
-            elif row['filter_base'] == 'z_differential':
-                print('y_differential start')
-
-                z_differential = filterBack.z_differential()
-                z_differential.z_window_para = int(row['z_window_para'])
-                self.RD3_data = z_differential.z_differential(self.RD3_data)
-
-                print('y_differential end')
-
-            elif row['filter_base'] == 'sign_smoother':
-                print('sign_smoother start')
-
-                sign_smoother = filterBack.sign_smoother()
-                # sign_smoother.runable = int(row['sign_smoother_check'])
-                if int(row['sign_smoother_check']) == 2:
-                    self.RD3_data = sign_smoother.run_with_npy(self.RD3_data)
-
-                print('sign_smoother end')
-
-            elif row['filter_base'] == 'kalman':
-                print('kalman start')
-
-                kalman_filter = filterBack.kalman_filter()
-                kalman_filter.axis = int(row['axis_para'])
-                kalman_filter.percentvar = float(row['percent_var_para'])
-                kalman_filter.gain = float(row['gain_para'])
-
-                self.RD3_data = kalman_filter.run(self.RD3_data)
-
-                print('kalman end')
-
-            elif row['filter_base'] == 'background':
-                print('background start')
-
-                Backgroud_remove = filterBack.Backgroud_remove()
-                Backgroud_remove.percent = float(row['background_percent'])
-                # sign_smoother.runable = int(row['sign_smoother_check'])
-                if int(row['background_check']) == 2:
-                    self.RD3_data = Backgroud_remove.run(self.RD3_data)
-
-                print('background end')
-
-            elif row['filter_base'] == 'alingnSignal':
-                print('alingnSignal start')
-
-                alingnSignal = filterBack.alingnSignal()
-                # sign_smoother.runable = int(row['sign_smoother_check'])
-                if int(row['alingnSignal_check']) == 2:
-                    self.RD3_data = alingnSignal.alingnSignal(self.RD3_data)
-
-                print('alingnSignal end')
-
-            elif row['filter_base'] == 'ch_bias':
-                print('ch_bias start')
-                self.start_bias = np.mean(self.data, axis=(1,2))
-                ch_bias = filterBack.ch_bias()
-                # sign_smoother.runable = int(row['sign_smoother_check'])
-                if int(row['ch_bias_check']) == 2:
-                    self.RD3_data = ch_bias.ch_bias(self.RD3_data, self.start_bias)
-
-                print('ch_bias end')
-
-        return np.int32(self.RD3_data)
-
-
-from box_back_end import *
-
-def openRd3(fname):
-    distanceRatio_default = 0.075369
-
-    if os.path.exists(os.path.dirname(fname[0]) + '/' + os.path.basename(fname[0]).split('.')[0] + '.rad'):
-        with open(os.path.dirname(fname[0]) + '/' + os.path.basename(fname[0]).split('.')[0] + '.rad') as f:
-            lines = f.readlines()
-        lines = [line.strip().replace("'", "\"") for line in lines]
-        infoDict = {}
-        for line in lines:
-            colonIdx = line.find(':')
-            infoDict[line[:colonIdx]] = line[colonIdx + 1:]
-        distanceRatio = float(infoDict['DISTANCE INTERVAL'])
-
-        chOffsets = list(map(float, infoDict['CH_Y_OFFSETS'].split()))
-        data_channel = int(infoDict['NUMBER_OF_CH'])
-
-    else:
-        distanceRatio = distanceRatio_default
-        chOffsets = [2.58, 2.58, 2.58, 2.58, 2.58, 0.044, 0.044, 0.044, 0.044, 0.044, 0.044, 0.044, 0.044,
-                          0.044, 0.044, 0.044,
-                          0.044, 0.044, 0.044, 0.044, 2.58, 2.58, 2.58, 2.58, 2.58]
-        data_channel = 25
-
-    if (np.array(chOffsets) == chOffsets[0]).all():
-        chOffsets = [2.58, 2.58, 2.58, 2.58, 2.58, 0.044, 0.044, 0.044, 0.044, 0.044, 0.044, 0.044, 0.044,
-                          0.044, 0.044, 0.044,
-                          0.044, 0.044, 0.044, 0.044, 2.58, 2.58, 2.58, 2.58, 2.58]
-
-
-    while True:
-        try:
-            with open(fname[0], 'rb') as f:
-                # print(fname)
-                handler = GPRdataHandler(f.read())
-        except Exception as e:
-            print(e)
-            time.sleep(1)
-            continue
-        break
-
-    handler.distanceRatio = distanceRatio
-    handler.chOffsets = chOffsets
-    handler.data_channel = data_channel
-
-    data = handler.readRd3()
-    data = handler.reshapeRd3(data)
-    data = handler.alignGround(data)
-    data = handler.alignChannel(data)
-
-    return data, handler.distanceRatio, infoDict
