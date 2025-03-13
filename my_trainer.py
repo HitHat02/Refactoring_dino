@@ -1,18 +1,15 @@
 from custom_datamodule import *
 from custom_net import end_to_3d_lingtning, BasicBlock_3d, BasicBlock_3d_up
-
-import matplotlib.pyplot as plt
-plt.ion()
-
-import pytorch_lightning as pl
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
+import pytorch_lightning as pl
 import torch
 import numpy as np
 import pandas as pd
 from apply_trainer import apply_trainer_run
 import color_maps
+
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -44,9 +41,7 @@ checkpoint_callback = pl.callbacks.model_checkpoint.ModelCheckpoint(monitor='val
 lr_callback = pl.callbacks.lr_monitor.LearningRateMonitor(logging_interval='step')
 
 csv_file = 'C:\\Users\\HYH\\Desktop\\test\\20230510_21년_양주시1차_최종.csv'
-# master_path = 'Z:\\GK\\7. 탐사DATA\\'
 master_path = 'C:\\Users\\HYH\\Desktop\\test\\양주시'
-# master_path = 'D:\\work_space\\data\\_rd3_data_all\\2021\\'
 save_path = f'D:\\work_space\\{version}\\'
 
 if not os.path.exists(save_path):

@@ -1,8 +1,5 @@
-
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-plt.ion()
 import pytorch_lightning as pl
 
 import os

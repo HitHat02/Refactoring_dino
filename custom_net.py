@@ -1,6 +1,3 @@
-
-import matplotlib.pyplot as plt
-plt.ion()
 import pytorch_lightning as pl
 from torchmetrics import functional as FM
 
