@@ -3,12 +3,14 @@ from torchmetrics import functional as FM
 
 import torch
 import torch.nn as nn
-import numpy as np
+from torch import Tensor
 
+import numpy as np
 from torchvision import datasets, transforms
 from heapq import heappush,heappop
 from color_maps import make_to_rgb
 import cv2
+from typing import Any, List, Tuple
 
 class vit_embed(nn.Module):
     def __init__(self):
@@ -400,7 +402,8 @@ class end_to_3d_lingtning(pl.LightningModule):
             c = self.makegrid(preds, 16, 13)
             self.logger.experiment.add_image(f"{label} ", make_to_rgb(c), self.current_epoch, dataformats="CHW")
 
-    def on_validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self, outputs: List[Any] = None) -> None:
+        super().on_validation_epoch_end()
         #  the function is called after every epoch is completed
         epoch_average = torch.stack(self.validation_step_outputs).mean()
         if self.current_epoch == 0:
@@ -413,46 +416,68 @@ class end_to_3d_lingtning(pl.LightningModule):
                         self.logger.experiment.add_image(k, v, self.current_epoch, dataformats="HW")
         self.validation_step_outputs.clear()  # free memory
 
-    def on_train_epoch_end (self, outputs):
-        epoch_average = torch.stack(self.training_step_outputs).mean()
-        if isinstance(self.reference_image, type(torch.tensor([]))):
-            self.showActivations(self.reference_image)
-        #             print('image saved')
-        # print(outputs)
-        avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['acc'] for x in outputs]).mean()
+    def on_train_epoch_end(self, outputs: List[Any] = None) -> None:
+        """에폭 종료 시 메트릭 계산 및 시각화 로깅"""
 
-        top_names = sorted(self.batch_file_names, reverse=True)
+        # 1. 상위 클래스 메서드 호출 (필수)
+        super().on_train_epoch_end()  # PL 1.6+ 필수 동작
 
-        tensorboard_logs = {'avg_loss': avg_loss, "avg_acc": avg_acc,}
+        # 2. 출력값 검증
+        if not outputs:
+            return
 
-        epoch_dictionary = {
-            # required
+        # 3. 평균 손실/정확도 계산 (안전한 타입 체크)
+        try:
+            avg_loss = torch.stack([x['loss'] for x in outputs if 'loss' in x]).mean()
+            avg_acc = torch.stack([x['acc'] for x in outputs if 'acc' in x]).mean()
+        except KeyError as e:
+            raise ValueError(f"Missing expected key in outputs: {e}")
+
+        # 4. 텐서보드 로깅
+        tensorboard_logs = {
             'avg_loss': avg_loss,
-
-            # for logging purposes
-            'log': tensorboard_logs,
-            "avg_acc": avg_acc,
+            'avg_acc': avg_acc
         }
-        for i, (loss_, name, y_hat_img, x_img, y_img) in enumerate(top_names[:5]):
-            if name == 0:
-                continue
-            self.logger.experiment.add_text(f"{self.current_epoch} {i} np_file_name ", str(f"{name} {loss_}"), global_step=None, walltime=None)
-            _, preds = torch.max(y_hat_img, 1)
+        self.log_dict(tensorboard_logs)
 
-            self.logger.experiment.add_image(f'{i} maxinum loss y_hat', make_to_rgb(self.makegrid(preds, 16, 13)), self.current_epoch, dataformats="CHW")
-            self.logger.experiment.add_image(f'{i} maxinum loss x', self.makegrid(x_img.reshape((1,25,224,224)), 16, 13), self.current_epoch, dataformats="HW")
-            self.logger.experiment.add_image(f'{i} maxinum loss y', make_to_rgb(self.makegrid(y_img, 16, 13)), self.current_epoch, dataformats="CHW")
+        # 5. 레퍼런스 이미지 활성화 맵 시각화
+        if isinstance(self.reference_image, Tensor):  # 올바른 타입 체크
+            self.showActivations(self.reference_image)
 
-        self.log_dict(epoch_dictionary)
-        self.batch_file_names = [
-            (0, 0, 0, 0, 0),
-            (0, 0, 0, 0, 0),
-            (0, 0, 0, 0, 0),
-            (0, 0, 0, 0, 0),
-            (0, 0, 0, 0, 0),
+        # 6. 상위 5개 샘플 시각화 (안전한 데이터 처리)
+        BatchRecord = Tuple[float, str, Tensor, Tensor, Tensor]
+        valid_records: List[BatchRecord] = [
+            r for r in self.batch_file_names
+            if isinstance(r, tuple) and len(r) == 5
         ]
-        self.training_step_outputs.clear()  # free memory
+
+        top_samples = sorted(
+            valid_records,
+            key=lambda x: x[0],  # loss 기준 정렬
+            reverse=True
+        )[:5]
+
+        for idx, (loss, name, y_hat, x, y) in enumerate(top_samples):
+            # 7. 이미지 변환 검증
+            if x.dim() != 4 or x.shape[1:] != (1, 224, 224):
+                continue
+
+            _, preds = torch.max(y_hat, dim=1)
+
+            # 8. 텐서보드에 이미지 추가
+            self._log_images(
+                epoch=self.current_epoch,
+                index=idx,
+                preds=preds,
+                x=x,
+                y=y,
+                loss=loss,
+                name=name
+            )
+
+        # 9. 메모리 초기화 (타입 명시적 설정)
+        self.batch_file_names: List[Tuple] = []
+        self.training_step_outputs.clear()
 
 
     def test_img_add_logger(self):

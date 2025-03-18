@@ -1,6 +1,6 @@
 from custom_datamodule import *
 from custom_net import end_to_3d_lingtning, BasicBlock_3d, BasicBlock_3d_up
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
 import pytorch_lightning as pl
@@ -13,9 +13,14 @@ import color_maps
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+torch.set_float32_matmul_precision('high')
+torch.serialization.add_safe_globals([
+    EarlyStopping,
+    ModelCheckpoint
+])
 
 version = 'grinding_v0_test'
-count = 1
+count = 2
 
 weights = [
           1,
@@ -32,11 +37,11 @@ early_stop_callback = EarlyStopping(
     min_delta=0.00001
 )
 
-checkpoint_callback = pl.callbacks.model_checkpoint.ModelCheckpoint(monitor='val_loss',
-                                                                    dirpath=f'./{version}/model_{count}/',
-                                                                    filename='{epoch}-{val_loss:.6f}-{val_acc:.6f}',
-                                                                    mode='min',
-                                                                    save_top_k=5)
+checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                    dirpath=f'./{version}/model_{count}/',
+                                    filename='{epoch}-{val_loss:.6f}-{val_acc:.6f}',
+                                    mode='min',
+                                    save_top_k=5)
 
 lr_callback = pl.callbacks.lr_monitor.LearningRateMonitor(logging_interval='step')
 
@@ -268,6 +273,7 @@ trainer = pl.Trainer(
                 # lr_callback
                 ],
     logger=logger,
+    log_every_n_steps=1
     # fast_dev_run=True,
     )
 
@@ -285,59 +291,7 @@ trainer = pl.Trainer(
 
 trainer.fit(model, datamodule=gpr_data)
 
-models = [file for file in os.listdir(f'./{version}/model_{count}/') if os.path.splitext(file)[1] == '.ckpt']
-result_file = open(f'./{version}/model_{count}/test_result.txt', "w")
-
-real_test_path = []
-
-for model_path in models:
-    model_path_true = os.path.join(f'./{version}/model_{count}/', model_path)
-    print(model_path_true)
-    model = model.load_from_checkpoint(model_path_true, strict=False)
-    model.update_loss(alpha=3.,
-                      beta=1.5,
-                      nSamples=[
-                          sum(unit.values()) * 32,
-                          unit[1],
-                      ],
-                      num_classes=2,
-                      sqrt_class=0.5,
-                      custom_weight=weights,
-                      )
-    results = trainer.test(model=model, test_dataloaders=gpr_data.test_dataloader())
-    result_file.write(f"{model_path}\n")
-    for r in results:
-        for k, v in r.items():
-            result_file.write(f"{k} {v} \n")
-    epoch = model_path[model_path.find("=")+1:model_path.find("-")]
-    real_test_path.append((epoch, model_path_true))
-
-result_file.close()
-
-for epoch, model_path_true in real_test_path:
-    apply_trainer_run(
-        master_path='Z:\\home\\ai성능테스트용\\',
-        save_path=f'D:\\work_space\\code\\gpr_deep\\dino_finetune\\test_result\\{version}_test\\{epoch}',
-        csv_path=f"D:\\work_space\\code\\gpr_deep\\dino_finetune\\csv\\{version}_test\\{epoch}",
-        model_name=version,
-        num_class=2,
-        batch_size=10,
-        model_path=model_path_true,
-        class_map={
-            1 : 'uco',
-            0 : 'background'
-        },
-        mixed_muli_class=[[1*255]],  # np.array([[0,1,2][4,5]]) *255,
-        distanceRatio=0.077149,
-        box_thread=20,
-    )
-
-# tensorboard --logdir D:\work_space\code\gpr_deep\dino_finetune\grinding_v13 --samples_per_plugin images=100
-
-version = "grinding_v0_test"
-count = 2
-
-models = [file for file in os.listdir(f'./{version}/model_{count}/') if os.path.splitext(file)[1] == '.ckpt']
+models = [file for file in os.listdir(f'./{version}/model_{count}/') if os.path.splitext(file)[1] == '.bak']
 result_file = open(f'./{version}/model_{count}/test_result.txt', "w")
 
 real_test_path = []
