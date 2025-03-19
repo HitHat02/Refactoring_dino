@@ -13,7 +13,6 @@ from custom_dataset import gpr_box_dataset
 import pickle
 
 import torch.nn.functional as nnf
-from skimage import transform as sk_tf
 
 
 class RandomFlip(object):
