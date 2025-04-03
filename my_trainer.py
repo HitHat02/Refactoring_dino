@@ -273,8 +273,8 @@ trainer = pl.Trainer(
                 # lr_callback
                 ],
     logger=logger,
-    log_every_n_steps=1
-    # fast_dev_run=True,
+    log_every_n_steps=1,
+    # fast_dev_run=True
     )
 
 # lr_finder = trainer.tuner.lr_find(model, train_dataloader=gpr_data.train_dataloader())
@@ -323,8 +323,8 @@ result_file.close()
 for epoch, model_path_true in real_test_path:
     apply_trainer_run(
         master_path='Z:\\home\\ai성능테스트용\\',
-        save_path=f'D:\\work_space\\code\\gpr_deep\\dino_finetune\\test_result\\{version}_test\\{epoch}',
-        csv_path=f"D:\\work_space\\code\\gpr_deep\\dino_finetune\\csv\\{version}_test\\{epoch}",
+        save_path=f'.\\grinding_v0_test\\{version}_test\\{epoch}',
+        csv_path=f".\\grinding_v0_test\\csv\\{version}_test\\{epoch}",
         model_name=version,
         num_class=2,
         batch_size=10,
